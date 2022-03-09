@@ -1,21 +1,47 @@
 #!/bin/bash
-
-# (c) 2021 by Harald Weidner
-# License: MIT
 #
-# Checkmk local check
-# displays informations about pending yum (RPM) security updates
+# (c) 2021 by Harald Weidner License: MIT
+#
+# Checkmk local check displays informations about pending yum (RPM) security updates
+#
+# place this in the checkmk agent "local/3600" directory (/usr/lib/check_mk_agent/local/3600 or similar) to cache results for an hour
+#
+# Runs "yum-check-update" to get all updates, then "yum updateinfo list updates sec" if any found The latter always returns zero on CentOS and some other distros
+#
+# Returns 2 (CRIT) if security updates pending (if OS reports these)
+#         1 (WARN) if updates pending (may include security updates if non-rhel)
+#         0 (OK) if no updates pending
 #
 # example output:
 #
-# 0 YUM_Updates updates=0 No pending security updates
+# 2 YUM_Updates updates=2 2 pending updates (1 security)
 
+IFS=
 if type yum >/dev/null 2>&1 ; then
-  updates=$(yum updateinfo list updates sec -q | wc -l)
-  if [[ $updates -gt 0 ]]; then
-    echo "2 YUM_Updates updates=$updates $updates pending security updates"
+  updatelist=$(yum check-update -q | egrep -v "Loaded plugins: langpacks, product-id, subscription-manager|^[ \t]|^$")
+  seccount=0
+  if [[ -z $updatelist ]] ; then
+    updates=0
   else
-    echo "0 YUM_Updates updates=0 No pending security updates"
+    updates=$(wc -l <<< $updatelist)
   fi
+  if [[ $updates -gt 0 ]] ; then
+    seclist=$(yum updateinfo list updates sec -q | egrep -v "No update|^[ \t]|^$")
+    if [[ ! -z $seclist ]] ; then
+      seccount=$(wc -l <<< "$seclist")
+      result="2 YUM_Updates updates=$updates $updates pending updates ($seccount security)"
+    else
+      result="1 YUM_Updates updates=$updates $updates pending updates"
+    fi
+  else
+    result="0 YUM_Updates updates=0 No pending updates"
+  fi
+  IFS=$'\n'
+  r=""
+  for line in $updatelist; do r="$r$line\\n"; done
+  if [[ $seccount -gt 0 ]] ; then
+    r="$r\\nSecurity Updates\\n\\n"
+    for line in $seclist; do r="$r$line\\n"; done 
+  fi
+  echo "$result\\n$r"
 fi
-
