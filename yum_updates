@@ -41,6 +41,6 @@ if type yum >/dev/null 2>&1 ; then
   for line in $updatelist; do printf "$line\\\n"; done
   if [[ $seccount -gt 0 ]] ; then
     printf "\\\nSecurity Updates\\\n\\\n"
-    for line in $seclist; do printf r="$line\\\n"; done 
+    for line in $seclist; do printf "$line\\\n"; done 
   fi
 fi
