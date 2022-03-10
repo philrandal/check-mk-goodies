@@ -27,11 +27,11 @@ if type yum >/dev/null 2>&1 ; then
   fi
   if [[ $updates -gt 0 ]] ; then
     seclist=$(yum updateinfo list updates sec -q | egrep -v "No update|^[ \t]|^$")
-    if [[ ! -z $seclist ]] ; then
+    if [[ -z $seclist ]] ; then
+      result="1 YUM_Updates updates=$updates $updates pending updates"
+    else
       seccount=$(wc -l <<< "$seclist")
       result="2 YUM_Updates updates=$updates $updates pending updates ($seccount security)"
-    else
-      result="1 YUM_Updates updates=$updates $updates pending updates"
     fi
   else
     result="0 YUM_Updates updates=0 No pending updates"
