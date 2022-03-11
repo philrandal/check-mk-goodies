@@ -1,12 +1,21 @@
 #!/bin/bash
-# (c) Harald Weidner, 2021-11-03 License: MIT
+
+# (c) Harald Weidner, 2021-11-03
+# License: MIT
 #
-# Checkmk local check Checks wether a system reboot is needed, e.g. after a kernel update. Currently, only Debian/Ubuntu and Red Hat and their derivates are supported.
+# Checkmk local check
+# Checks wether a system reboot is needed, e.g. after a kernel update.
+# Currently, only Debian/Ubuntu and Red Hat and their derivates are supported.
 #
 # example output:
 # 
 # 0 Reboot_needed - No system reboot needed
-CHECK=Reboot_needed SEVERITY=2 # 1=WARN, 2=CRIT [[ -f /etc/os-release ]] && source /etc/os-release
+
+CHECK=Reboot_needed
+SEVERITY=2  # 1=WARN, 2=CRIT
+
+[[ -f /etc/os-release ]] && source /etc/os-release
+
 # Red Hat family
 if type /usr/bin/needs-restarting >/dev/null 2>&1; then
   set -o pipefail
@@ -34,6 +43,7 @@ if type /usr/bin/needs-restarting >/dev/null 2>&1; then
   else
     echo "0 $CHECK - $reboot"
   fi
+
 # Debian / Ubuntu family
 elif [[ $ID == "debian" || $ID_LIKE == "debian" || $ID == "ubuntu" || $ID_LIKE == "ubuntu" ]]; then
   if [[ -f /var/run/reboot-required ]]; then
@@ -47,3 +57,4 @@ elif [[ $ID == "debian" || $ID_LIKE == "debian" || $ID == "ubuntu" || $ID_LIKE =
     echo "0 $CHECK - No system reboot needed"
   fi
 fi
+
