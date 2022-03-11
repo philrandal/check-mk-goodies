@@ -4,7 +4,7 @@
 # License: MIT
 #
 # Checkmk local check
-# Checks wether a system reboot is needed, e.g. after a kernel update.
+# Checks whether a system reboot is needed, e.g. after a kernel update.
 # Currently, only Debian/Ubuntu and Red Hat and their derivates are supported.
 #
 # example output:
@@ -57,4 +57,3 @@ elif [[ $ID == "debian" || $ID_LIKE == "debian" || $ID == "ubuntu" || $ID_LIKE =
     echo "0 $CHECK - No system reboot needed"
   fi
 fi
-
