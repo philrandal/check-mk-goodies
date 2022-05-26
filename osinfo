@@ -19,6 +19,10 @@ fi
 
 if type lsb_release >/dev/null 2>&1 ; then
   echo "0 LSB_Release - $(lsb_release -ds)"
+else
+  if [[ -f /etc/redhat-release ]]; then
+    echo "0 LSB_Release - \"$(cat /etc/redhat-release)\""
+  fi
 fi
 
 if type hostname >/dev/null 2>&1 ; then
