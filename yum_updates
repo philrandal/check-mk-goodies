@@ -14,7 +14,7 @@
 #
 # example output:
 #
-# 2 YUM_Updates updates=2 2 pending updates (1 security)
+# 2 "YUM Updates" updates=2 2 pending updates (1 security)
 
 IFS=
 if type yum >/dev/null 2>&1 ; then
@@ -28,13 +28,13 @@ if type yum >/dev/null 2>&1 ; then
   if [[ $updates -gt 0 ]] ; then
     seclist=$(yum updateinfo list updates sec -q | egrep -v "No update|^[ \t]|^$")
     if [[ -z $seclist ]] ; then
-      result="1 YUM_Updates updates=$updates $updates pending updates\\\n"
+      result="1 \"YUM Updates\" updates=$updates $updates pending updates\\\n"
     else
       seccount=$(wc -l <<< "$seclist")
-      result="2 YUM_Updates updates=$updates $updates pending updates ($seccount security)\\\n"
+      result="2 \"YUM Updates\" updates=$updates $updates pending updates ($seccount security)\\\n"
     fi
   else
-    result="0 YUM_Updates updates=0 No pending updates"
+    result="0 \"YUM Updates\" updates=0 No pending updates"
   fi
   IFS=$'\n'
   printf "$result"
