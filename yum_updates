@@ -14,7 +14,9 @@
 #
 # example output:
 #
-# 2 "YUM Updates" updates=2 2 pending updates (1 security)
+# 2 "YUM Updates" updates=2|security_updates=1 2 pending updates (1 security)
+#
+# Checkmk records the "updates" and "security_updates" metrics and graphs them
 
 IFS=
 if type yum >/dev/null 2>&1 ; then
@@ -32,13 +34,13 @@ if type yum >/dev/null 2>&1 ; then
     # Keep only advisory lines ("id severity package"), not status or header messages
     seclist=$(yum updateinfo list updates sec -q | grep -E '^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]*$' | grep -v '^No update')
     if [[ -z $seclist ]] ; then
-      result="1 \"YUM Updates\" updates=$updates $updates pending updates"
+      result="1 \"YUM Updates\" updates=$updates|security_updates=0 $updates pending updates"
     else
       seccount=$(wc -l <<< "$seclist")
-      result="2 \"YUM Updates\" updates=$updates $updates pending updates ($seccount security)"
+      result="2 \"YUM Updates\" updates=$updates|security_updates=$seccount $updates pending updates ($seccount security)"
     fi
   else
-    result="0 \"YUM Updates\" updates=0 No pending updates"
+    result="0 \"YUM Updates\" updates=0|security_updates=0 No pending updates"
   fi
   IFS=$'\n'
   # Package names are printed with %s, never as the printf format, so characters
