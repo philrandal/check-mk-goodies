@@ -6,7 +6,10 @@
 #
 # place this in the checkmk agent "local/3600" directory (/usr/lib/check_mk_agent/local/3600 or similar) to cache results for an hour
 #
-# Runs "yum-check-update" to get all updates, then "yum updateinfo list updates sec" if any found The latter always returns zero on CentOS and some other distros
+# Runs "check-update" to get all updates, then lists the security advisories if any are found.
+# The latter always returns zero on CentOS and some other distros.
+# Uses dnf if it is installed ("dnf updateinfo list --updates --security"), otherwise yum
+# ("yum updateinfo list updates sec"). On dnf systems "yum" is only an alias for dnf.
 #
 # Returns 2 (CRIT) if security updates pending (if OS reports these)
 #         1 (WARN) if updates pending (may include security updates if non-rhel)
@@ -19,11 +22,27 @@
 # Checkmk records the "updates" and "security_updates" metrics and graphs them
 
 IFS=
-if type yum >/dev/null 2>&1 ; then
-  # Keep only package lines ("name.arch version repo", or just "name.arch" when yum
+pkgmgr=
+if type dnf >/dev/null 2>&1 ; then
+  pkgmgr=dnf
+elif type yum >/dev/null 2>&1 ; then
+  pkgmgr=yum
+fi
+
+# list pending security advisories, using the syntax of the package manager in use
+security_advisories() {
+  if [[ $pkgmgr == dnf ]] ; then
+    dnf updateinfo list --updates --security -q
+  else
+    yum updateinfo list updates sec -q
+  fi
+}
+
+if [[ -n $pkgmgr ]] ; then
+  # Keep only package lines ("name.arch version repo", or just "name.arch" when it
   # wraps a long name onto two lines); this drops any header such as
   # "Loaded plugins", "Obsoleting Packages", "Security: ...", blank and indented lines
-  updatelist=$(yum check-update -q | grep -E '^[^[:space:]]+\.[^[:space:]]+([[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+)?[[:space:]]*$')
+  updatelist=$($pkgmgr check-update -q | grep -E '^[^[:space:]]+\.[^[:space:]]+([[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+)?[[:space:]]*$')
   seccount=0
   if [[ -z $updatelist ]] ; then
     updates=0
@@ -32,7 +51,7 @@ if type yum >/dev/null 2>&1 ; then
   fi
   if [[ $updates -gt 0 ]] ; then
     # Keep only advisory lines ("id severity package"), not status or header messages
-    seclist=$(yum updateinfo list updates sec -q | grep -E '^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]*$' | grep -v '^No update')
+    seclist=$(security_advisories | grep -E '^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]*$' | grep -v '^No update')
     if [[ -z $seclist ]] ; then
       result="1 \"YUM Updates\" updates=$updates|security_updates=0 $updates pending updates"
     else
