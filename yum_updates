@@ -6,7 +6,10 @@
 #
 # place this in the checkmk agent "local/3600" directory (/usr/lib/check_mk_agent/local/3600 or similar) to cache results for an hour
 #
-# Runs "yum-check-update" to get all updates, then "yum updateinfo list updates sec" if any found The latter always returns zero on CentOS and some other distros
+# Runs "check-update" to get all updates, then lists the security advisories if any are found.
+# The latter always returns zero on CentOS and some other distros.
+# Uses dnf if it is installed ("dnf updateinfo list --updates --security"), otherwise yum
+# ("yum updateinfo list updates sec"). On dnf systems "yum" is only an alias for dnf.
 #
 # Returns 2 (CRIT) if security updates pending (if OS reports these)
 #         1 (WARN) if updates pending (may include security updates if non-rhel)
@@ -14,11 +17,32 @@
 #
 # example output:
 #
-# 2 "YUM Updates" updates=2 2 pending updates (1 security)
+# 2 "YUM Updates" updates=2|security_updates=1 2 pending updates (1 security)
+#
+# Checkmk records the "updates" and "security_updates" metrics and graphs them
 
 IFS=
-if type yum >/dev/null 2>&1 ; then
-  updatelist=$(yum check-update -q | egrep -v "Loaded plugins: langpacks, product-id, subscription-manager|^[ \t]|^$")
+pkgmgr=
+if type dnf >/dev/null 2>&1 ; then
+  pkgmgr=dnf
+elif type yum >/dev/null 2>&1 ; then
+  pkgmgr=yum
+fi
+
+# list pending security advisories, using the syntax of the package manager in use
+security_advisories() {
+  if [[ $pkgmgr == dnf ]] ; then
+    dnf updateinfo list --updates --security -q
+  else
+    yum updateinfo list updates sec -q
+  fi
+}
+
+if [[ -n $pkgmgr ]] ; then
+  # Keep only package lines ("name.arch version repo", or just "name.arch" when it
+  # wraps a long name onto two lines); this drops any header such as
+  # "Loaded plugins", "Obsoleting Packages", "Security: ...", blank and indented lines
+  updatelist=$($pkgmgr check-update -q | grep -E '^[^[:space:]]+\.[^[:space:]]+([[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+)?[[:space:]]*$')
   seccount=0
   if [[ -z $updatelist ]] ; then
     updates=0
@@ -26,22 +50,27 @@ if type yum >/dev/null 2>&1 ; then
     updates=$(wc -l <<< $updatelist)
   fi
   if [[ $updates -gt 0 ]] ; then
-    seclist=$(yum updateinfo list updates sec -q | egrep -v "No update|^[ \t]|^$")
+    # Keep only advisory lines ("id severity package"), not status or header messages
+    seclist=$(security_advisories | grep -E '^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]*$' | grep -v '^No update')
     if [[ -z $seclist ]] ; then
-      result="1 \"YUM Updates\" updates=$updates $updates pending updates\\\n"
+      result="1 \"YUM Updates\" updates=$updates|security_updates=0 $updates pending updates"
     else
       seccount=$(wc -l <<< "$seclist")
-      result="2 \"YUM Updates\" updates=$updates $updates pending updates ($seccount security)\\\n"
+      result="2 \"YUM Updates\" updates=$updates|security_updates=$seccount $updates pending updates ($seccount security)"
     fi
   else
-    result="0 \"YUM Updates\" updates=0 No pending updates"
+    result="0 \"YUM Updates\" updates=0|security_updates=0 No pending updates"
   fi
   IFS=$'\n'
-  printf "$result"
-  for line in $updatelist; do printf "$line\\\n"; done
+  # Package names are printed with %s, never as the printf format, so characters
+  # such as % or \ in the data cannot be interpreted. "\\n" is the literal two
+  # characters \n that Checkmk uses as a line break in local check output
+  printf '%s' "$result"
+  if [[ $updates -gt 0 ]] ; then printf '\\n'; fi
+  for line in $updatelist; do printf '%s\\n' "$line"; done
   if [[ $seccount -gt 0 ]] ; then
-    printf "\\\nSecurity Updates\\\n\\\n"
-    for line in $seclist; do printf "$line\\\n"; done 
+    printf '\\nSecurity Updates\\n\\n'
+    for line in $seclist; do printf '%s\\n' "$line"; done
   fi
   printf "\n"
 fi
