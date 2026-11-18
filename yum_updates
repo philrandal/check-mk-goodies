@@ -32,20 +32,24 @@ if type yum >/dev/null 2>&1 ; then
     # Keep only advisory lines ("id severity package"), not status or header messages
     seclist=$(yum updateinfo list updates sec -q | grep -E '^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]*$' | grep -v '^No update')
     if [[ -z $seclist ]] ; then
-      result="1 \"YUM Updates\" updates=$updates $updates pending updates\\\n"
+      result="1 \"YUM Updates\" updates=$updates $updates pending updates"
     else
       seccount=$(wc -l <<< "$seclist")
-      result="2 \"YUM Updates\" updates=$updates $updates pending updates ($seccount security)\\\n"
+      result="2 \"YUM Updates\" updates=$updates $updates pending updates ($seccount security)"
     fi
   else
     result="0 \"YUM Updates\" updates=0 No pending updates"
   fi
   IFS=$'\n'
-  printf "$result"
-  for line in $updatelist; do printf "$line\\\n"; done
+  # Package names are printed with %s, never as the printf format, so characters
+  # such as % or \ in the data cannot be interpreted. "\\n" is the literal two
+  # characters \n that Checkmk uses as a line break in local check output
+  printf '%s' "$result"
+  if [[ $updates -gt 0 ]] ; then printf '\\n'; fi
+  for line in $updatelist; do printf '%s\\n' "$line"; done
   if [[ $seccount -gt 0 ]] ; then
-    printf "\\\nSecurity Updates\\\n\\\n"
-    for line in $seclist; do printf "$line\\\n"; done 
+    printf '\\nSecurity Updates\\n\\n'
+    for line in $seclist; do printf '%s\\n' "$line"; done
   fi
   printf "\n"
 fi
