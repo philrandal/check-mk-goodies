@@ -18,7 +18,7 @@
 
 IFS=
 if type yum >/dev/null 2>&1 ; then
-  updatelist=$(yum check-update -q | egrep -v "Loaded plugins: langpacks, product-id, subscription-manager|^[ \t]|^$")
+  updatelist=$(yum check-update -q | grep -Ev "Loaded plugins: langpacks, product-id, subscription-manager|^[ \t]|^$")
   seccount=0
   if [[ -z $updatelist ]] ; then
     updates=0
@@ -26,7 +26,7 @@ if type yum >/dev/null 2>&1 ; then
     updates=$(wc -l <<< $updatelist)
   fi
   if [[ $updates -gt 0 ]] ; then
-    seclist=$(yum updateinfo list updates sec -q | egrep -v "No update|^[ \t]|^$")
+    seclist=$(yum updateinfo list updates sec -q | grep -Ev "No update|^[ \t]|^$")
     if [[ -z $seclist ]] ; then
       result="1 \"YUM Updates\" updates=$updates $updates pending updates\\\n"
     else
