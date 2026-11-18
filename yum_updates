@@ -18,7 +18,10 @@
 
 IFS=
 if type yum >/dev/null 2>&1 ; then
-  updatelist=$(yum check-update -q | grep -Ev "Loaded plugins: langpacks, product-id, subscription-manager|^[ \t]|^$")
+  # Keep only package lines ("name.arch version repo", or just "name.arch" when yum
+  # wraps a long name onto two lines); this drops any header such as
+  # "Loaded plugins", "Obsoleting Packages", "Security: ...", blank and indented lines
+  updatelist=$(yum check-update -q | grep -E '^[^[:space:]]+\.[^[:space:]]+([[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+)?[[:space:]]*$')
   seccount=0
   if [[ -z $updatelist ]] ; then
     updates=0
@@ -26,7 +29,8 @@ if type yum >/dev/null 2>&1 ; then
     updates=$(wc -l <<< $updatelist)
   fi
   if [[ $updates -gt 0 ]] ; then
-    seclist=$(yum updateinfo list updates sec -q | grep -Ev "No update|^[ \t]|^$")
+    # Keep only advisory lines ("id severity package"), not status or header messages
+    seclist=$(yum updateinfo list updates sec -q | grep -E '^[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]+[^[:space:]]+[[:space:]]*$' | grep -v '^No update')
     if [[ -z $seclist ]] ; then
       result="1 \"YUM Updates\" updates=$updates $updates pending updates\\\n"
     else
